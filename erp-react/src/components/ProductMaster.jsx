@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import "../master.css";
 
@@ -106,16 +107,21 @@ function ProductMaster() {
 
   // 🔹 SEARCH
   const handleSearch = () => {
-    if (!search) {
-      setFilteredProducts(products); // Show all if search empty
-    } else {
-      const result = products.filter(p =>
-        p.pid?.toLowerCase().includes(search.toLowerCase())
-      );
-      setFilteredProducts(result); // Show search results
-    }
-    setShowTable(true);
-  };
+  if (!search) {
+    setFilteredProducts(products);
+  } else {
+    const value = search.toLowerCase();
+
+    const result = products.filter(p =>
+      p.pid?.toLowerCase().includes(value) ||
+      p.name?.toLowerCase().includes(value)   // if phone field exists
+    );
+
+    setFilteredProducts(result);
+  }
+
+  setShowTable(true);
+};
 
   const gstOptions = ["5%", "18%"];
   const categories = [
@@ -135,7 +141,7 @@ function ProductMaster() {
   return (
     <div className="tab">
       <input
-        placeholder="Search by Product ID"
+        placeholder="Search by Product ID name"
         value={search}
         onChange={e => setSearch(e.target.value)}
       />

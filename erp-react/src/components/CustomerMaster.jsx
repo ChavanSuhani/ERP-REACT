@@ -83,17 +83,25 @@ function CustomerMaster() {
   };
 
   // 🔹 SEARCH
-  const handleSearch = async () => {
-    if (!search) {
-      setFilteredCustomers(customers);
-    } else {
-      const result = customers.filter(c =>
-        c.id?.toLowerCase().includes(search.toLowerCase())
-      );
-      setFilteredCustomers(result);
-    }
-    setShowTable(true);
-  };
+const handleSearch = () => {
+  if (!search.trim()) {
+    setFilteredCustomers(customers);
+  } else {
+    const keyword = search.toLowerCase();
+
+    const result = customers.filter(c =>
+      c.id?.toLowerCase().includes(keyword) ||
+      c.name?.toLowerCase().includes(keyword) ||
+      c.vehicleNo?.toLowerCase().includes(keyword) ||
+      c.contact?.toLowerCase().includes(keyword)
+    );
+
+    setFilteredCustomers(result);
+  }
+
+  setShowTable(true);
+};
+
 
   // 🔹 EDIT
   const editCustomer = c => {
@@ -113,10 +121,11 @@ function CustomerMaster() {
   return (
     <div className="tab">
       <input
-        placeholder="Search by Customer ID"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
+  placeholder="Search by ID, Name, Vehicle No or Mobile"
+  value={search}
+  onChange={e => setSearch(e.target.value)}
+/>
+
       <button type="button" onClick={handleSearch}>Search</button>
       <button
           type="button"

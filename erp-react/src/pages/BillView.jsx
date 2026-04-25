@@ -1,3 +1,5 @@
+
+
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +21,8 @@ function BillView() {
   if (!bill) return <h3>Loading bill...</h3>;
 
   const services = Array.isArray(bill.services) ? bill.services : [];
+  const products = Array.isArray(bill.products) ? bill.products : [];
+
   const customer = bill.customer || {};
   const payments = bill.payments || {};
 
@@ -75,6 +79,48 @@ function BillView() {
 
       <hr />
 
+      {/* PRODUCTS */}
+{products.length > 0 && (
+  <>
+    <hr />
+
+    <div>
+      <h3>Products</h3>
+      <table className="service-table">
+        <thead>
+  <tr>
+    <th>Product</th>
+    <th>Qty</th>
+    <th>Rate</th>
+    <th>GST %</th>
+    <th>GST Amount</th>   {/* 👈 ADD THIS */}
+    <th>Amount</th>
+  </tr>
+</thead>
+
+
+        <tbody>
+  {products.map((p, i) => (
+    <tr key={i}>
+      <td>{p.product}</td>
+      <td>{p.qty}</td>
+      <td>₹{p.rate}</td>
+      <td>{p.gst}%</td>
+
+      {/* ✅ GST AMOUNT (CGST + SGST) */}
+      <td>₹{(p.cgstAmount + p.sgstAmount).toFixed(2)}</td>
+
+      <td>₹{p.amount}</td>
+    </tr>
+  ))}
+</tbody>
+
+      </table>
+    </div>
+  </>
+)}
+
+
       {/* BOTTOM ROW */}
       <div className="row two-col">
         <div>
@@ -82,7 +128,8 @@ function BillView() {
           <p>CGST: ₹{bill.cgstTotal}</p>
           <p>SGST: ₹{bill.sgstTotal}</p>
           <p>Discount: ₹{bill.discount}</p>
-          <h3>Grand Total: ₹{bill.grandTotal}</h3>
+          <h3>Grand Total: ₹{bill.grandTotal.toFixed(2)}</h3>
+
         </div>
 
         <div>
@@ -90,7 +137,7 @@ function BillView() {
           <p>Cash: ₹{bill.payments?.cash}</p>
           <p>UPI: ₹{bill.payments?.upi}</p>
           <p>Credit: ₹{bill.payments?.credit}</p>
-          <p><b>Total Paid:</b> ₹{bill.totalPaid}</p>
+          <p><b>Total Paid:</b> ₹{Number(bill.totalPaid || 0).toFixed(2)}</p>
           <p><b>Balance:</b> ₹{bill.balanceAmount}</p>
           <p><b>Status:</b> {bill.paymentStatus}</p>
         </div>

@@ -132,6 +132,11 @@ th, td {
 /* Back Button */
 .back-btn {
     margin-bottom: 10px;
+    border-radius: 10px;
+    padding: 7px 15px;
+    background: #e8ecf8;
+    margin-left: 140px;
+
 }
 /* Make select look like input (ERP style) */
 .form-group select {

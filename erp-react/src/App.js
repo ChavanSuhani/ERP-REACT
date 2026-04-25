@@ -5,6 +5,9 @@ import Masters from "./pages/Masters";
 import TransactionMaster from "./components/TransactionMaster";
 import BillsList from "./pages/BillsList";
 import BillView from "./pages/BillView";
+import Appointment from "./components/Appointment";
+import JobCardCreate from "./components/JobCardCreate";
+import JobCardList from "./components/JobCardList";
 
 function ProtectedRoute({ children }) {
   const isLoggedIn = localStorage.getItem("loggedIn");
@@ -41,9 +44,13 @@ function App() {
 <Route path="/bill/:id" element={<BillView />} />
 
         <Route path="*" element={<Navigate to="/login" />} />
+
+         <Route path="/appointments" element={<ProtectedRoute><Appointment /></ProtectedRoute>} />
+       
+        <Route path="/jobcard/create/:appointmentId" element={<JobCardCreate />} />
+        <Route path="/jobcardlist" element={<JobCardList />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
 export default App;

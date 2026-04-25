@@ -38,6 +38,11 @@ export default function Home() {
             >
               Transactions
             </button>
+
+            <button className="home-btn secondary" onClick={() => navigate("/appointments")}>
+  Appointments
+</button>
+
           </div>
         </div>
       </section>

@@ -1,454 +1,514 @@
-import { useState, useEffect } from "react";
 
-const SERVICE_API = "http://localhost:5000/api/services";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+
+const JOBCARD_API = "http://localhost:5000/api/jobcards";
+const BILL_API = "http://localhost:5000/api/transactions/from-jobcard";
 const CUSTOMER_API = "http://localhost:5000/api/customers";
-const TRANSACTION_API = "http://localhost:5000/api/transactions";
+const SERVICE_API = "http://localhost:5000/api/services";
+const PRODUCT_API = "http://localhost:5000/api/products";
+
+const getGST = (obj) => {
+  const raw =
+    obj.gst ??
+    obj.gstPercent ??
+    obj.tax ??
+    obj.gstCategory ??
+    0;
+
+  // handles "18%" → 18
+  return Number(String(raw).replace("%", "")) || 0;
+};
 
 
-function TransactionMaster() {
-  const [serviceList, setServiceList] = useState([]);
+export default function TransactionMaster() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  const searchParams = new URLSearchParams(location.search);
+  const jobCardId = searchParams.get("jobCardId");
 
-const [invoiceNo, setInvoiceNo] = useState("");
-const [invoiceDate, setInvoiceDate] = useState(
-  new Date().toISOString().split("T")[0]
-);
+  const [invoiceNo, setInvoiceNo] = useState("");
+  const [invoiceDate] = useState(new Date().toISOString().slice(0, 10));
 
-useEffect(() => {
-  fetch("http://localhost:5000/api/invoice/next")
-    .then(res => res.json())
-    .then(data => {
-      console.log("Invoice:", data.invoiceNo); // DEBUG
-      setInvoiceNo(data.invoiceNo);
-    })
-    .catch(err => console.error(err));
-}, []);
+  const [customer, setCustomer] = useState({
+    customerName: "",
+    vehicleNo: "",
+    contactNo: "",
+    state: ""
+  });
 
-
-  const [services, setServices] = useState([
-  {
-  service: "",
-  qty: 1,
-  rate: 0,
-  gst: 0,
-  amount: 0,
-  gstAmount: 0,
-  cgstAmount: 0,
-  sgstAmount: 0
-}
-
-  ]);
-
-  // ✅ CUSTOMER STATE
-const [customers, setCustomers] = useState([]);
-const [selectedCustomer, setSelectedCustomer] = useState(null);
-
-useEffect(() => {
-  fetch(CUSTOMER_API)
-    .then(res => res.json())
-    .then(data => setCustomers(data))
-    .catch(err => console.error(err));
-}, []);
-
-
-  // ✅ FIXED CUSTOMER FETCH (CORRECT ENDPOINT)
-  // const fetchCustomer = async () => {
-  //   if (!customerId.trim()) return;
-
-  //   try {
-  //     const res = await fetch(
-  //       `${CUSTOMER_API}/by-id/${customerId.trim()}`
-  //     );
-
-  //     if (!res.ok) throw new Error("Not found");
-
-  //     const data = await res.json();
-
-  //     setCustomer({
-  //       name: data.name || "",
-  //       vehicleNo: data.vehicleNo || "",
-  //       contact: data.contact || "",
-  //       state: data.state || ""
-  //     });
-  //   } catch (err) {
-  //     alert("Customer not found");
-  //     setCustomer({
-  //       name: "",
-  //       vehicleNo: "",
-  //       contact: "",
-  //       state: ""
-  //     });
-  //   }
-  // };
-
+  const [services, setServices] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [payment, setPayment] = useState({ cash: 0, upi: 0, credit: 0 });
   const [discount, setDiscount] = useState(0);
-const [summary, setSummary] = useState({
-  subtotal: 0,
-  cgstTotal: 0,
-  sgstTotal: 0,
-  grandTotal: 0
+
+  const [customersList, setCustomersList] = useState([]);
+const [serviceMasters, setServiceMasters] = useState([]);
+const [productMasters, setProductMasters] = useState([]);
+
+
+  /* ================= FETCH DATA FROM JOBCARD ================= */
+  useEffect(() => {
+  if (!jobCardId) return;
+
+  fetch(`${JOBCARD_API}/${jobCardId}/billing`)
+
+    .then(res => res.json())
+    .then(jc => {
+      console.log("JOB CARD DATA 👉", jc);
+
+      fetch("http://localhost:5000/api/invoice/next")
+  .then(res => res.json())
+  .then(data => setInvoiceNo(data.invoiceNo));
+
+
+      /* CUSTOMER */
+      setCustomer({
+  customerName: jc.customerName || jc.name || "",
+  vehicleNo: jc.vehicleNo || "",
+  contactNo: jc.contactNo || jc.contact || "",
+  state: jc.state || ""
 });
 
-// 🔹 PAYMENT STATE (NEW)
-  const [paymentModes, setPaymentModes] = useState({
-    cash: false,
-    upi: false,
-    credit: false
-  });
 
-  const [paymentAmounts, setPaymentAmounts] = useState({
-  cash: 0,
-  upi: 0,
-  credit: 0,
-});
+      /* ✅ SERVICES — FIXED */
+      const jobCardServices =
+        jc.servicesUsed ||
+        jc.services ||
+        jc.serviceDetails ||
+        [];
+
+      setServices(
+        jobCardServices.map(s => {
+          const qty = s.qty || 1;
+          const rate = s.rate || s.price || 0;
+          const gst = s.gst || 0;
+
+          return {
+            name: s.serviceName || s.service || s.name || "",
+            qty,
+            rate,
+            gst,
+            amount: qty * rate
+          };
+        })
+      );
+
+      /* ✅ PRODUCTS — FIXED */
+      const jobCardProducts =
+        jc.productsUsed ||
+        jc.parts ||
+        jc.products ||
+        [];
+
+      setProducts(
+        jobCardProducts.map(p => {
+          const qty = p.qty || 1;
+          const rate = p.rate || p.price || 0;
+          const gst = p.gst || 0;
+
+          return {
+            name: p.productName || p.product || p.name || "",
+            qty,
+            rate,
+            gst,
+            amount: qty * rate
+          };
+        })
+      );
+    })
+    .catch(err => {
+      console.error("JobCard fetch error:", err);
+    });
+}, [jobCardId]);
+
+  /* ================= FETCH MASTERS FOR MANUAL MODE ================= */
+  useEffect(() => {
+    if (jobCardId) return;
+
+    fetch(CUSTOMER_API).then(res => res.json()).then(setCustomersList);
+    fetch(SERVICE_API).then(res => res.json()).then(setServiceMasters);
+    fetch(PRODUCT_API).then(res => res.json()).then(setProductMasters);
+
+    fetch("http://localhost:5000/api/invoice/next")
+      .then(res => res.json())
+      .then(data => setInvoiceNo(data.invoiceNo));
+  }, [jobCardId]);
+
+  const addServiceFromMaster = (id) => {
+  const s = serviceMasters.find(x => (x._id || x.id) === id);
+  if (!s) return;
+
+  const rate = Number(s.cost || s.rate || s.price || 0);
+  const gst = getGST(s);
+
+  setServices([...services, {
+    name: s.name || s.serviceName || s.service,
+    qty: 1,
+    rate,
+    gst,
+    amount: rate
+  }]);
+};
 
 
-  const [payments, setPayments] = useState({
-    cash: 0,
-    upi: 0,
-    credit: 0
-  });
+const addProductFromMaster = (id) => {
+  const p = productMasters.find(x => (x._id || x.pid) === id);
+  if (!p) return;
 
-  const selectedModes = Object.keys(paymentModes).filter(m => paymentModes[m]);
+  const rate = Number(p.sale || p.rate || p.price || 0);
+  const gst = getGST(p);
 
-  const handleModeToggle = (mode) => {
-    if (!paymentModes[mode] && selectedModes.length === 2) {
-      alert("Only two payment modes allowed");
+  setProducts([...products, {
+    name: p.name || p.productName || p.product,
+    qty: 1,
+    rate,
+    gst,
+    amount: rate
+  }]);
+};
+
+const removeService = (index) => {
+  setServices(services.filter((_, i) => i !== index));
+};
+
+const removeProduct = (index) => {
+  setProducts(products.filter((_, i) => i !== index));
+};
+
+  /* ================= CALCULATIONS ================= */
+  const serviceTotal = services.reduce((a, s) => a + s.amount, 0);
+  const productTotal = products.reduce((a, p) => a + p.amount, 0);
+  const subTotal = serviceTotal + productTotal - Number(discount);
+  const gstTotal =
+    services.reduce((a, s) => a + (s.amount * s.gst) / 100, 0) +
+    products.reduce((a, p) => a + (p.amount * p.gst) / 100, 0);
+  const grandTotal = subTotal + gstTotal;
+  const totalPaid =
+    Number(payment.cash) + Number(payment.upi) + Number(payment.credit);
+  const balance = grandTotal - totalPaid;
+
+  /* ================= HANDLE BILL GENERATION ================= */
+
+  const handleGenerateBill = async () => {
+  try {
+    const url = jobCardId
+      ? `${BILL_API}/${jobCardId}`   // from job card
+      : "http://localhost:5000/api/transactions"; // normal bill
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      },
+      body: JSON.stringify({
+        jobCardId,
+        invoiceNo,
+        invoiceDate,
+        customer,
+        services,
+        products,
+        subTotal: subTotal,
+        gstTotal,
+        discount,
+        grandTotal,
+        payment,
+        payments: payment,
+        totalPaid,
+        balance
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.message || "Billing failed");
       return;
     }
 
-    setPaymentModes(prev => ({ ...prev, [mode]: !prev[mode] }));
-    setPayments(prev => ({ ...prev, [mode]: 0 }));
-  };
-
-  const handlePaymentChange = (mode, value) => {
-    const amount = Number(value) || 0;
-    const otherMode = selectedModes.find(m => m !== mode);
-    const remaining = summary.grandTotal - amount;
-
-    setPayments(prev => ({
-      ...prev,
-      [mode]: amount,
-      ...(otherMode ? { [otherMode]: remaining > 0 ? remaining : 0 } : {})
-    }));
-  };
-
-  const totalPaid =
-    payments.cash + payments.upi + payments.credit;
-  const balanceAmount =
-    summary.grandTotal - totalPaid;
-
-
-
-  // 🔹 FETCH SERVICE MASTER
-  useEffect(() => {
-    fetch(SERVICE_API)
-      .then(res => res.json())
-      .then(data => setServiceList(data));
-  }, []);
-
- const addRow = () => {
-    setServices([
-      ...services,
-      {
-        service: "",
-        qty: 1,
-        rate: 0,
-        gst: 0,
-        amount: 0,
-        gstAmount: 0,
-        cgstAmount: 0,
-        sgstAmount: 0
-      }
-    ]);
-  };
-
-  const removeRow = index => {
-    setServices(services.filter((_, i) => i !== index));
-  };
-
-  const updateRow = (index, field, value) => {
-    const updated = [...services];
-    updated[index][field] = value;
-
-    const qty = Number(updated[index].qty);
-    const rate = Number(updated[index].rate);
-    const gst = Number(updated[index].gst);
-
-    const amount = qty * rate;
-    const totalGstAmount = (amount * gst) / 100;
-    
-const cgstAmount = totalGstAmount / 2;
-const sgstAmount = totalGstAmount / 2;
-
-updated[index].amount = amount; 
-updated[index].gstAmount = totalGstAmount;
-updated[index].cgstAmount = cgstAmount;
-updated[index].sgstAmount = sgstAmount;
-
-
-    setServices(updated);
-  };
-
-  const handleServiceSelect = (index, serviceId) => {
-    const service = serviceList.find(s => s.id === serviceId);
-    if (!service) return;
-
-    updateRow(index, "service", service.name);
-    updateRow(index, "rate", Number(service.cost));
-    updateRow(index, "gst", Number(service.gstCategory.replace("%", "")));
-  };
-
-  // 🔹 AUTO TOTALS
-  useEffect(() => {
- let subtotal = 0;
-let cgstTotal = 0;
-let sgstTotal = 0;
-
-services.forEach(row => {
-  subtotal += row.amount;
-  cgstTotal += row.cgstAmount || 0;
-  sgstTotal += row.sgstAmount || 0;
-});
-
-setSummary({
-  subtotal,
-  cgstTotal,
-  sgstTotal,
-  grandTotal: subtotal + cgstTotal + sgstTotal - discount
-});
-
-  }, [services, discount]);
-
-  
-
-  const generateBill = async () => {
- if (!selectedCustomer || services.length === 0) {
-
-    alert("Customer & services required");
-    return;
-  }
-
-    const payload = {
-      invoiceNo,
-      invoiceDate,
-      customer: {
-        id: selectedCustomer._id,
-        name: selectedCustomer.name,
-        vehicleNo: selectedCustomer.vehicleNo,
-        contact: selectedCustomer.contact,
-        state: selectedCustomer.state
-      },
-      services: services.filter(s => s.service),
-      subtotal: summary.subtotal,
-      cgstTotal: summary.cgstTotal,
-      sgstTotal: summary.sgstTotal,
-      discount,
-      grandTotal: summary.grandTotal,
-      payments: {
-    cash: paymentModes.cash ? payments.cash : 0,
-    upi: paymentModes.upi ? payments.upi : 0,
-    credit: paymentModes.credit ? payments.credit : 0
-  },
-      totalPaid,
-      balanceAmount,
-      paymentStatus: balanceAmount === 0 ? "Paid" : "Pending"
-    };
-
-
-
-  const res = await fetch("http://localhost:5000/api/transactions", {
-  method: "POST",
-   headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`
-  },
-  body: JSON.stringify(payload)
-
-  });
-
-  if (res.ok) {
-    alert("Transaction saved successfully ✅");
-  } else {
-    alert("Failed to save transaction ❌");
+    alert("Bill generated successfully!");
+    navigate("/bills");
+  } catch (err) {
+    console.error(err);
+    alert("Server error while generating bill");
   }
 };
 
 
   return (
-
     <div className="tab">
       <h2>Transaction / Billing</h2>
 
-      {/* 🔹 INVOICE DETAILS */}
+      {/* INVOICE */}
       <div className="section">
-        <div className="trans-section-title">Invoice Details</div>
-        <div className="grid-2">
-          <input value={invoiceNo} readOnly />
-          <input
-            type="date"
-            value={invoiceDate}
-            onChange={e => setInvoiceDate(e.target.value)}
-          />
+        <h4>Invoice Details</h4>
+        <div className="grid-3">
+          <div className="field">
+            <label>Invoice No.</label>
+            <input value={invoiceNo} disabled />
+          </div>
+
+          <div className="field">
+            <label>Date</label>
+            <input value={invoiceDate} disabled />
+          </div>
+
+          <div className="field">
+            <label>Job Card No.</label>
+            <input value={jobCardId || ""} disabled />
+          </div>
         </div>
       </div>
 
       {/* CUSTOMER */}
       <div className="section">
-        <div className="trans-section-title">Customer Details</div>
-        <div className="grid-3">
-         
+        <h4>Customer Details</h4>
+        {!jobCardId && (
+  <div className="field">
+    <label>Select Customer</label>
+    <select
+      onChange={e => {
+        const c = customersList.find(x => x._id === e.target.value);
+        if (!c) return;
+        setCustomer({
+  customerName: c.customerName || c.name || "",
+  vehicleNo: c.vehicleNo || "",
+  contactNo: c.contactNo || c.contact || "",
+  state: c.state || ""
+});
 
-<select
-  value={selectedCustomer?._id || ""}
-  onChange={(e) => {
-    const cust = customers.find(c => c._id === e.target.value);
-    setSelectedCustomer(cust);
-  }}
->
-  <option value="">Select Customer</option>
-  {customers.map(c => (
-    <option key={c._id} value={c._id}>
-      {c.name}
-    </option>
-  ))}
-</select>
+      }}
+    >
+      <option value="">Select Customer</option>
+      {customersList.map(c => (
+        <option key={c._id} value={c._id}>
+          {c.customerName || c.name}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
 
-<input placeholder="Vehicle No" value={selectedCustomer?.vehicleNo || ""} disabled />
-<input placeholder="Contact No" value={selectedCustomer?.contact || ""} disabled />
-<input placeholder="State" value={selectedCustomer?.state || ""} disabled />
+        <div className="grid-4">
+          <div className="field">
+            <label>Customer Name</label>
+            <input value={customer.customerName} disabled />
+          </div>
 
+          <div className="field">
+            <label>Vehicle No.</label>
+            <input value={customer.vehicleNo} disabled />
+          </div>
+
+          <div className="field">
+            <label>Contact No.</label>
+            <input value={customer.contactNo} disabled />
+          </div>
+
+          <div className="field">
+            <label>State</label>
+            <input value={customer.state} disabled />
+          </div>
         </div>
       </div>
 
-      {/* Services */}
+      {/* SERVICES */}
       <div className="section">
-        <div className="trans-section-title">Service Details</div>
+        <h4>Service Details</h4>
+        {!jobCardId && (
+  <select onChange={e => addServiceFromMaster(e.target.value)}>
+    <option value="">Add Service</option>
+    {serviceMasters.map(s => (
+  <option key={s._id || s.id} value={s._id || s.id}>
+    {s.serviceName || s.name || s.service}
+  </option>
+))}
+
+  </select>
+)}
 
         <table className="service-table">
           <thead>
-            <tr>
-              <th>Service</th>
-              <th>Qty</th>
-              <th>Rate</th>
-              <th>GST %</th>
-              <th>Amount</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+  <tr>
+    <th>Service</th>
+    <th>Qty</th>
+    <th>Rate</th>
+    <th>GST %</th>
+    <th>Amount</th>
+    <th>Remove</th>
+  </tr>
+</thead>
 
           <tbody>
-            {services.map((row, i) => (
-              <tr key={i}>
-                <td>
-                  <select onChange={e => handleServiceSelect(i, e.target.value)}>
-                    <option value="">Select Service</option>
-                    {serviceList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </td>
+            {services.length > 0 ? (
+              services.map((s, i) => (
+  <tr key={i}>
+    <td>{s.name}</td>
+    <td>{s.qty}</td>
+    <td>{s.rate}</td>
+    <td>{s.gst}</td>
+    <td>{s.amount.toFixed(2)}</td>
+    <td>
+      <button
+        onClick={() => removeService(i)}
+        style={{
+          background: "red",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          padding: "4px 8px"
+        }}
+      >
+        ❌
+      </button>
+    </td>
+  </tr>
+))
 
-                <td>
-                  <input
-                    type="number"
-                    value={row.qty}
-                    min="1"
-                    onChange={e => updateRow(i, "qty", e.target.value)}
-                  />
-                </td>
-
-                <td><input value={row.rate} disabled /></td>
-                <td><input value={row.gst} disabled /></td>
-                <td><input value={row.amount.toFixed(2)} disabled /></td>
-
-                <td>
-                  <button onClick={() => removeRow(i)}>❌</button>
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center" }}>
+                  No services found
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-
-        <button onClick={addRow}>➕ Add Service</button>
       </div>
 
-      {/* Summary */}
+      {/* PRODUCTS */}
       <div className="section">
-        <div className="trans-section-title">Billing Summary</div>
+        <h4>Product Details</h4>
+        {!jobCardId && (
+  <select onChange={e => addProductFromMaster(e.target.value)}>
+    <option value="">Add Product</option>
+    {productMasters.map(p => (
+  <option key={p._id || p.pid} value={p._id || p.pid}>
+    {p.productName || p.name || p.product}
+  </option>
+))}
 
-        <div className="summary-box">
-          <div className="summary-row">
-            <span>Subtotal</span>
-            <span>{summary.subtotal.toFixed(2)}</span>
-          </div>
+  </select>
+)}
 
-          <div className="summary-row">
-  <span>CGST</span>
-  <span>{summary.cgstTotal.toFixed(2)}</span>
-</div>
+        <table className="service-table">
+          <thead>
+  <tr>
+    <th>Product</th>
+    <th>Qty</th>
+    <th>Rate</th>
+    <th>GST %</th>
+    <th>Amount</th>
+    <th>Remove</th>
+  </tr>
+</thead>
 
-<div className="summary-row">
-  <span>SGST</span>
-  <span>{summary.sgstTotal.toFixed(2)}</span>
-</div>
+          <tbody>
+            {products.length > 0 ? (
+              products.map((p, i) => (
+  <tr key={i}>
+    <td>{p.name}</td>
+    <td>{p.qty}</td>
+    <td>{p.rate}</td>
+    <td>{p.gst}</td>
+    <td>{p.amount.toFixed(2)}</td>
+    <td>
+      <button
+        onClick={() => removeProduct(i)}
+        style={{
+          background: "red",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          padding: "4px 8px"
+        }}
+      >
+        ❌
+      </button>
+    </td>
+  </tr>
+))
 
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center" }}>
+                  No products found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          <div className="summary-row">
-            <span>Discount</span>
+      {/* BILL SUMMARY */}
+      <div className="section bill-box">
+        <p>Subtotal: ₹ {subTotal.toFixed(2)}</p>
+        <p>CGST: ₹ {(gstTotal / 2).toFixed(2)}</p>
+        <p>SGST: ₹ {(gstTotal / 2).toFixed(2)}</p>
+
+        <div className="field">
+          <label>Discount</label>
+          <input
+            type="number"
+            value={discount}
+            onChange={e => setDiscount(e.target.value)}
+          />
+        </div>
+
+        <h3>Grand Total: ₹ {grandTotal.toFixed(2)}</h3>
+      </div>
+
+      {/* PAYMENT */}
+      <div className="section">
+        <h4>Payment Split</h4>
+        <div className="grid-3">
+          <div className="field">
+            <label>Cash</label>
             <input
               type="number"
-              value={discount}
-              onChange={e => setDiscount(Number(e.target.value))}
+              value={payment.cash}
+              onChange={e =>
+                setPayment({ ...payment, cash: Number(e.target.value) })
+              }
             />
           </div>
 
-          <div className="summary-row total">
-            <span>Grand Total</span>
-            <span>{summary.grandTotal.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-       {/* Payment */}
-      <div className="section">
-        <div className="trans-section-title">Payment</div>
-
-        {["cash", "upi", "credit"].map(mode => (
-          <div key={mode} style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-            <input
-              type="checkbox"
-              checked={paymentModes[mode]}
-              onChange={() => handleModeToggle(mode)}
-            />
-            <label style={{ width: "80px" }}>{mode.toUpperCase()}</label>
+          <div className="field">
+            <label>UPI</label>
             <input
               type="number"
-              disabled={!paymentModes[mode]}
-              value={payments[mode]}
-              onChange={e => handlePaymentChange(mode, e.target.value)}
+              value={payment.upi}
+              onChange={e =>
+                setPayment({ ...payment, upi: Number(e.target.value) })
+              }
             />
           </div>
-        ))}
 
-        <p><b>Total Paid:</b> ₹{totalPaid.toFixed(2)}</p>
-        <p><b>Balance:</b> ₹{balanceAmount.toFixed(2)}</p>
-
-        <div className="action-buttons">
-          <button className="gene" onClick={generateBill}>Generate Bill</button>
-
-  <button
-  className="gene"
-    onClick={() => window.open("/bills", "_blank")}
-    style={{ marginLeft: "10px" }}
-  >
-    Show All Bills
-  </button>  
-
+          <div className="field">
+            <label>Credit</label>
+            <input
+              type="number"
+              value={payment.credit}
+              onChange={e =>
+                setPayment({ ...payment, credit: Number(e.target.value) })
+              }
+            />
+          </div>
         </div>
+
+        <p>Total Paid: ₹ {totalPaid.toFixed(2)}</p>
+        <p>Balance: ₹ {balance.toFixed(2)}</p>
       </div>
+
+      <button className="gene" onClick={handleGenerateBill}>
+  Generate Bill
+</button>
+
+<button className="gene" onClick={() => navigate("/bills")}>
+  Show All Bills
+</button>
+
     </div>
   );
 }
-
-export default TransactionMaster;
