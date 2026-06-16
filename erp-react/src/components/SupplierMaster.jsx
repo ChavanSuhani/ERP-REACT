@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "../master.css";
-const API = "http://localhost:5000/api/suppliers";
+const API = `${process.env.REACT_APP_API_URL}/api/suppliers`;
 
 // 🔹 Dropdown data
 const gstOptions = ["5%", "18%"];

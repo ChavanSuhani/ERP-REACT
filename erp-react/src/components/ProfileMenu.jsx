@@ -12,13 +12,13 @@ export default function ProfileMenu() {
   useEffect(() => {
     if (!open) return;
 
-    fetch("http://localhost:5000/api/auth/profile", {
+    fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(data => setUser(data));
 
-    fetch("http://localhost:5000/api/transactions/my", {
+    fetch(`${process.env.REACT_APP_API_URL}/api/transactions/my`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())

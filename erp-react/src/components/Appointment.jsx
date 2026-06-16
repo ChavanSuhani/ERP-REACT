@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api/appointments";
-const SERVICE_API = "http://localhost:5000/api/services";
+const API = `${process.env.REACT_APP_API_URL}/api/appointments`;
+const SERVICE_API = `${process.env.REACT_APP_API_URL}/api/services`;
 
 export default function Appointment() {
   const navigate = useNavigate();

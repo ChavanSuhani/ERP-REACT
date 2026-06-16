@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-const JOBCARD_API = "http://localhost:5000/api/jobcards";
-const BILL_API = "http://localhost:5000/api/transactions/from-jobcard";
-const CUSTOMER_API = "http://localhost:5000/api/customers";
-const SERVICE_API = "http://localhost:5000/api/services";
-const PRODUCT_API = "http://localhost:5000/api/products";
+const JOBCARD_API = `${process.env.REACT_APP_API_URL}/api/jobcards`;
+const BILL_API = `${process.env.REACT_APP_API_URL}/api/transactions/from-jobcard`;
+const CUSTOMER_API = `${process.env.REACT_APP_API_URL}/api/customers`;
+const SERVICE_API = `${process.env.REACT_APP_API_URL}/api/services`;
+const PRODUCT_API = `${process.env.REACT_APP_API_URL}/api/products`;
 
 const getGST = (obj) => {
   const raw =

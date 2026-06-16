@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-const APPOINTMENT_API = "http://localhost:5000/api/appointments";
-const SERVICE_API = "http://localhost:5000/api/services";
-const PRODUCT_API = "http://localhost:5000/api/products";
-const EMPLOYEE_API = "http://localhost:5000/api/employees";
-const JOBCARD_API = "http://localhost:5000/api/jobcards";
+const APPOINTMENT_API = `${process.env.REACT_APP_API_URL}/api/appointments`;
+const SERVICE_API = `${process.env.REACT_APP_API_URL}/api/services`;
+const PRODUCT_API = `${process.env.REACT_APP_API_URL}/api/products`;
+const EMPLOYEE_API = `${process.env.REACT_APP_API_URL}/api/employees`;
+const JOBCARD_API = `${process.env.REACT_APP_API_URL}/api/jobcards`;
 
 export default function JobCardCreate() {
   const navigate = useNavigate();

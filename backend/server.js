@@ -4,13 +4,13 @@ const dotenv = require("dotenv");
 
 const connectDB = require("./config/db");
 
-const router = express.Router();
+// const router = express.Router();
 
-router.post("/login", (req, res) => {
-  res.json({ message: "Login API working" });
-});
+// router.post("/login", (req, res) => {
+//   res.json({ message: "Login API working" });
+// });
 
-module.exports = router;
+// module.exports = router;
 
 // Routes
 const invoiceRoutes = require("./routes/invoiceRoutes");
@@ -44,7 +44,7 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use("/api/transactions", require("./routes/transactionRoutes"));
+//app.use("/api/transactions", require("./routes/transactionRoutes"));
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/invoice", invoiceRoutes);
 app.use("/api/auth", authRoutes);
